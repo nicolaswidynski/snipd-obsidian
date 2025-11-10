@@ -720,7 +720,13 @@ export default class SnipdPlugin extends Plugin {
       const showId = episodeData?.show_id;
       const showName = showId && showsData[showId] ? showsData[showId].name : 'Unknown Show';
 
-      await this.syncFile(fileData.full, fileData.append, sanitizeFileName(episodeName), sanitizeFileName(showName));
+      await this.syncFile(
+        fileData.full,
+        fileData.append,
+        sanitizeFileName(episodeName),
+        sanitizeFileName(showName),
+        episodeData?.total_snip_count
+      );
       
       if (episodeData?.updated_snip_count) {
         snipCount += episodeData.updated_snip_count;
@@ -731,11 +737,34 @@ export default class SnipdPlugin extends Plugin {
     return { episodeCount, snipCount };
   }
 
+  private updateSnipsCountInFrontmatter(content: string, snipsCount: number): string {
+    const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---\s*(\n|$)/;
+    const match = content.match(frontmatterRegex);
+
+    if (!match) {
+      return content;
+    }
+
+    const frontmatterContent = match[1];
+    const restOfContent = content.slice(match[0].length);
+
+    const snipsCountRegex = /^snips_count:\s*\d+\s*$/m;
+    
+    if (!snipsCountRegex.test(frontmatterContent)) {
+      return content;
+    }
+
+    const updatedFrontmatter = frontmatterContent.replace(snipsCountRegex, `snips_count: ${snipsCount}`);
+
+    return `---\n${updatedFrontmatter}\n---\n${restOfContent}`;
+  }
+
   async syncFile(
     fullContent: string,
     appendContent: string | undefined,
     entityName: string,
-    showName: string
+    showName: string,
+    totalSnipCount?: number
   ) {
     const targetPath = normalizePath(`${this.settings.snipdDir}/${showName}/${entityName}.md`);
 
@@ -758,6 +787,10 @@ export default class SnipdPlugin extends Plugin {
         
         if (appendContent) {
           contentToWrite = existingContent.trimEnd() + "\n" + appendContent;
+          
+          if (totalSnipCount !== undefined) {
+            contentToWrite = this.updateSnipsCountInFrontmatter(contentToWrite, totalSnipCount);
+          }
         } else {
           contentToWrite = fullContent;
         }
