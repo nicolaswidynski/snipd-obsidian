@@ -108,6 +108,9 @@ export default class SnipdPlugin extends Plugin {
     debugLog('Snipd plugin: clearing sync metadata...');
     this.settings.fileHashMap = {};
     this.settings.appendOnlyFiles = {};
+    this.settings.baseFileHashes = {};
+    this.settings.baseFileManualOverrides = {};
+    this.settings.lastBaseFileSyncToken = null;
     this.settings.last_updated_after = null;
     this.settings.current_export_updated_after = null;
     this.settings.current_export_batch_index = 0;
