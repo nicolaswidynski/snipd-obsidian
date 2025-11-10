@@ -31,7 +31,17 @@ export function sanitizeFileName(
   illegalSymbols: string[] = DEFAULT_ILLEGAL_SYMBOLS,
   maxLength = 150,
 ): string {
+  if (!name) {
+    return 'untitled';
+  }
+  
   const escapedSymbols = illegalSymbols.map(escapeForRegexCharacterClass).join('');
-  return name.replace(new RegExp(`[${escapedSymbols}]`, 'g'), '_').slice(0, maxLength);
+  let sanitized = name.replace(new RegExp(`[${escapedSymbols}]`, 'g'), '_').slice(0, maxLength).trim();
+  
+  if (!sanitized) {
+    return 'untitled';
+  }
+  
+  return sanitized;
 }
 
