@@ -35,7 +35,7 @@ You can download it [here](https://www.snipd.com).
 
 1. Install & enable the plugin inside Obsidian's community plugin section
 2. Open the plugin settings
-3. Click on "Connect" and sign in with your Snipd account
+3. Click on "Connect" and sign in with your Snipd account. If you have an issues connecting to your Snipd, please make sure you open the link in your native web browser, not in Obsidian's in-app browser.
 4. Optionally click "Test sync" to test the connection and output format
 5. Optionally customize your template
 6. Click "Start syncing" to start your first sync
