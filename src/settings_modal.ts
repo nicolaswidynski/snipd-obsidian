@@ -31,7 +31,7 @@ export class SnipdSettingModal extends PluginSettingTab {
   }
 
   // Cannot use electron API in Obsidian
-  async openExternal(url: string) {
+  openExternal(url: string) {
     globalThis.window.open(url);
   }
 
@@ -42,7 +42,7 @@ export class SnipdSettingModal extends PluginSettingTab {
 
     container.empty();
     container.addClass('snipd-hidden');
-    await this.openExternal(`${AUTH_URL}?uuid=${uuid}`);
+    this.openExternal(`${AUTH_URL}?uuid=${uuid}`);
 
     let response;
     let data: { token?: string };
