@@ -297,6 +297,29 @@ export class SnipdSettingModal extends PluginSettingTab {
         }
       });
 
+    new Setting(containerEl)
+      .setName("Reset data and sync")
+      .setDesc("Remove all sync data and trigger a new sync from scratch")
+      .addButton((button) => {
+        const isBusy = this.plugin.settings.isSyncing || this.plugin.settings.isTestSyncing;
+        button.setButtonText(isBusy ? "Syncing..." : "Reset & sync");
+        button.setDisabled(isBusy);
+        button.onClick(() => {
+          const confirmed = globalThis.window.confirm(
+            "This will remove all synced Snipd data from your vault and start a fresh sync. Continue?"
+          );
+          if (!confirmed) {
+            return;
+          }
+          button.setDisabled(true);
+          button.setButtonText("Resetting...");
+          void this.plugin.resetSyncAndResync().finally(() => {
+            button.setDisabled(false);
+            button.setButtonText("Reset & sync");
+          });
+        });
+      });
+
     if (this.refreshInterval !== null) {
       globalThis.window.clearInterval(this.refreshInterval);
       this.refreshInterval = null;

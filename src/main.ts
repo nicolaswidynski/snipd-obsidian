@@ -133,6 +133,51 @@ export default class SnipdPlugin extends Plugin {
     await this.saveSettings();
   }
 
+  async resetSyncAndResync(): Promise<void> {
+    if (this.settings.isSyncing || this.settings.isTestSyncing) {
+      this.notice("Please wait for the current sync to finish or stop it before resetting", true);
+      return;
+    }
+
+    if (!this.settings.apiKey) {
+      this.notice("Please connect with your Snipd account in settings", true);
+      return;
+    }
+
+    this.notice("Resetting sync data...", true, 0, true);
+
+    try {
+      const snipdDirExists = await this.app.vault.adapter.exists(this.settings.snipdDir);
+      if (snipdDirExists) {
+        await this.app.vault.adapter.rmdir(this.settings.snipdDir, true);
+        debugLog(`Snipd plugin: removed Snipd base folder at ${this.settings.snipdDir}`);
+      }
+    } catch (error) {
+      debugLog('Snipd plugin: failed to remove Snipd base folder during reset:', error);
+      this.notice("Reset failed: unable to remove Snipd folder. Check logs for details.", true, 4, true);
+      return;
+    }
+
+    this.settings.isSyncing = false;
+    this.settings.isTestSyncing = false;
+    this.syncAbortController = null;
+
+    await this.clearSyncMetadata();
+
+    this.settings.lastSyncTimestamp = null;
+    this.settings.lastSyncEpisodeCount = 0;
+    this.settings.lastSyncSnipCount = 0;
+    this.settings.hasCompletedFirstSync = false;
+    await this.saveSettings();
+
+    if (this.settingsTab) {
+      this.settingsTab.display();
+    }
+
+    this.notice("Sync data reset. Starting fresh sync...", true, 0, true);
+    await this.syncSnipd();
+  }
+
   async syncSnipd() {
     if (!this.validateSyncPreconditions()) {
       return;
