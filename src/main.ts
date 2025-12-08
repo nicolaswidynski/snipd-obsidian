@@ -21,6 +21,12 @@ import {
   FetchExportMetadataResponse,
   BaseFileMetadata
 } from './types';
+
+function isValidAdditionalProperties(
+  props: Array<{ name: string; template: string; displayName?: string }> | null
+): props is Array<{ name: string; template: string; displayName?: string }> {
+  return Array.isArray(props) && props.length > 0 && props.every((p) => !!p.name?.trim() && !!p.template?.trim());
+}
 import { generateEpisodeFileName, createDirForFile, isDev, debugLog } from './utils';
 import { sanitizeFileName } from './sanitize_file_name';
 import { SnipdSettingModal } from './settings_modal';
@@ -290,6 +296,7 @@ export default class SnipdPlugin extends Plugin {
     episode_ids: string[];
     episode_template?: string;
     snip_template?: string;
+    additional_properties?: Array<{ name: string; template: string; displayName?: string; }>;
     updated_after?: string;
     only_edited_snips?: boolean;
   } {
@@ -297,6 +304,7 @@ export default class SnipdPlugin extends Plugin {
       episode_ids: string[];
       episode_template?: string;
       snip_template?: string;
+      additional_properties?: Array<{ name: string; template: string; displayName?: string; }>;
       updated_after?: string;
       only_edited_snips?: boolean;
     } = {
@@ -304,6 +312,15 @@ export default class SnipdPlugin extends Plugin {
       episode_template: this.settings.episodeTemplate ?? DEFAULT_EPISODE_TEMPLATE,
       snip_template: this.settings.snipTemplate ?? DEFAULT_SNIP_TEMPLATE,
     };
+    
+    const additionalProps = this.settings.additionalProperties;
+    if (isValidAdditionalProperties(additionalProps)) {
+      requestBody.additional_properties = additionalProps.map((prop) => ({
+        name: prop.name.trim(),
+        template: prop.template.trim(),
+        ...(prop.displayName?.trim() ? { displayName: prop.displayName.trim() } : {}),
+      }));
+    }
     
     if (this.settings.last_updated_after) {
       requestBody.updated_after = this.settings.last_updated_after;
@@ -565,12 +582,22 @@ export default class SnipdPlugin extends Plugin {
           episode_ids: string[];
           episode_template: string;
           snip_template: string;
+          additional_properties?: Array<{ name: string; template: string; displayName?: string; }>;
           only_edited_snips?: boolean;
         } = {
           episode_ids: episodeIds,
           episode_template: this.settings.episodeTemplate ?? DEFAULT_EPISODE_TEMPLATE,
           snip_template: this.settings.snipTemplate ?? DEFAULT_SNIP_TEMPLATE,
         };
+        
+        const additionalProps = this.settings.additionalProperties;
+        if (isValidAdditionalProperties(additionalProps)) {
+          exportRequestBody.additional_properties = additionalProps.map((prop) => ({
+            name: prop.name.trim(),
+            template: prop.template.trim(),
+            ...(prop.displayName?.trim() ? { displayName: prop.displayName.trim() } : {}),
+          }));
+        }
         
         if (this.settings.onlyEditedSnips) {
           exportRequestBody.only_edited_snips = true;
@@ -846,13 +873,32 @@ export default class SnipdPlugin extends Plugin {
     try {
       debugLog('Snipd plugin: fetching base file...');
       
-      const response = await requestUrl({
+      const requestOptions: {
+        url: string;
+        method: string;
+        headers: Record<string, string>;
+        body?: string;
+      } = {
         url: `${API_BASE_URL}/obsidian/export-base-file`,
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.settings.apiKey}`,
         },
-      });
+      };
+
+      const additionalProps = this.settings.additionalProperties;
+      if (isValidAdditionalProperties(additionalProps)) {
+        requestOptions.headers['Content-Type'] = 'application/json';
+        requestOptions.body = JSON.stringify({
+          additional_properties: additionalProps.map((prop) => ({
+            name: prop.name.trim(),
+            template: prop.template.trim(),
+            ...(prop.displayName?.trim() ? { displayName: prop.displayName.trim() } : {}),
+          })),
+        });
+      }
+
+      const response = await requestUrl(requestOptions);
 
       if (response.status < 200 || response.status >= 300) {
         debugLog("Snipd plugin: bad response for base file: ", response);
@@ -967,13 +1013,32 @@ export default class SnipdPlugin extends Plugin {
     try {
       debugLog('Snipd plugin: fetching base file for test sync...');
       
-      const response = await requestUrl({
+      const requestOptions: {
+        url: string;
+        method: string;
+        headers: Record<string, string>;
+        body?: string;
+      } = {
         url: `${API_BASE_URL}/obsidian/export-base-file`,
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.settings.apiKey}`,
         },
-      });
+      };
+
+      const additionalProps = this.settings.additionalProperties;
+      if (isValidAdditionalProperties(additionalProps)) {
+        requestOptions.headers['Content-Type'] = 'application/json';
+        requestOptions.body = JSON.stringify({
+          additional_properties: additionalProps.map((prop) => ({
+            name: prop.name.trim(),
+            template: prop.template.trim(),
+            ...(prop.displayName?.trim() ? { displayName: prop.displayName.trim() } : {}),
+          })),
+        });
+      }
+
+      const response = await requestUrl(requestOptions);
 
       if (response.status < 200 || response.status >= 300) {
         debugLog("Snipd plugin: bad response for base file in test sync: ", response);
