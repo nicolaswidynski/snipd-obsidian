@@ -165,6 +165,7 @@ export class FormattingConfigModal extends Modal {
       '{{snip_favorite_star}}',
       '{{snip_start_time}}',
       '{{snip_end_time}}',
+      '{{snip_clipping_time}}',
       '{{snip_duration}}',
       '{{snip_note}}',
       '{{snip_quote}}',
