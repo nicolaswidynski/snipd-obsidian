@@ -49,7 +49,8 @@ export class FormattingConfigModal extends Modal {
   }
 
   onOpen() {
-    const { contentEl } = this;
+    const { contentEl, modalEl } = this;
+    modalEl.addClass('snipd-formatting-modal');
     contentEl.empty();
     
     const scrollableContent = contentEl.createDiv({ cls: 'snipd-modal-scrollable' });
