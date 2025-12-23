@@ -43,6 +43,65 @@ export default class SnipdPlugin extends Plugin {
   settingsTab: SnipdSettingModal | null = null;
   syncAbortController: AbortController | null = null;
 
+  private formatApiErrorMessage(
+    error: unknown,
+    response: { status: number } | null = null,
+    context: string = "Sync"
+  ): string {
+    if (response) {
+      const statusCode = response.status;
+      let statusMessage = "";
+      
+      if (statusCode === 401) {
+        statusMessage = "Authentication failed. Please check your API key in settings.";
+      } else if (statusCode === 403) {
+        statusMessage = "Access forbidden. Your account may not have permission for this operation.";
+      } else if (statusCode === 404) {
+        statusMessage = "Resource not found.";
+      } else if (statusCode === 429) {
+        statusMessage = "Rate limit exceeded. Please try again later.";
+      } else if (statusCode >= 500) {
+        statusMessage = "Server error. Please try again later.";
+      } else if (statusCode >= 400) {
+        statusMessage = "Request error.";
+      } else {
+        statusMessage = "Unexpected response.";
+      }
+      
+      return `${context} failed (${statusCode}): ${statusMessage}`;
+    }
+    
+    if (error instanceof Error) {
+      const errorMessage = error.message || String(error);
+      const errorName = error.name || "Error";
+      
+      if (errorName === "AbortError" || errorMessage.includes("aborted")) {
+        return `${context} cancelled.`;
+      }
+      
+      if (errorMessage.includes("network") || errorMessage.includes("fetch") || errorMessage.includes("ECONNREFUSED")) {
+        return `${context} failed: Network error - unable to connect to server.`;
+      }
+      
+      if (errorMessage.includes("timeout")) {
+        return `${context} failed: Request timeout - server took too long to respond.`;
+      }
+      
+      if (isDev()) {
+        return `${context} failed: ${errorName} - ${errorMessage}`;
+      }
+      
+      return `${context} failed: ${errorName}.`;
+    }
+    
+    const errorString = String(error);
+    if (isDev()) {
+      return `${context} failed: ${errorString}`;
+    }
+    
+    return `${context} failed: Unable to connect to server.`;
+  }
+
   async handleSyncError(msg: string) {
     await this.clearSettingsAfterRun();
     this.notice(msg, true, 4, true);
@@ -270,7 +329,7 @@ export default class SnipdPlugin extends Plugin {
       debugLog(`Snipd plugin: metadata response status: ${response.status}`);
     } catch (e) {
       debugLog("Snipd plugin: request failed in syncSnipd: ", e);
-      const errorMsg = "Sync failed: unable to connect to server." + (isDev() ? ` Detail: ${e}` : "");
+      const errorMsg = this.formatApiErrorMessage(e, null, "Sync");
       await this.handleSyncError(errorMsg);
       return null;
     }
@@ -307,8 +366,7 @@ export default class SnipdPlugin extends Plugin {
       return metadata;
     } else {
       debugLog("Snipd plugin: bad response in syncSnipd: ", response);
-      const statusCode = response ? response.status : 0;
-      const errorMsg = `Sync failed${statusCode ? ` (${statusCode})` : ""}` + (isDev() && response ? ` Detail: ${response.status}` : "");
+      const errorMsg = this.formatApiErrorMessage(null, response, "Sync");
       await this.handleSyncError(errorMsg);
       return null;
     }
@@ -418,7 +476,7 @@ export default class SnipdPlugin extends Plugin {
       });
     } catch (e) {
       debugLog("Snipd plugin: request failed for batch: ", e);
-      const errorMsg = "Sync failed: unable to connect to server." + (isDev() ? ` Detail: ${e}` : "");
+      const errorMsg = this.formatApiErrorMessage(e, null, `Sync at batch ${batchIndex + 1}`);
       await this.handleSyncError(errorMsg);
       return null;
     }
@@ -448,8 +506,7 @@ export default class SnipdPlugin extends Plugin {
       return stats;
     } else {
       debugLog("Snipd plugin: bad response for batch: ", response);
-      const statusCode = response ? response.status : 0;
-      const errorMsg = `Sync failed at batch ${batchIndex + 1}${statusCode ? ` (${statusCode})` : ""}` + (isDev() && response ? ` Detail: ${response.status}` : "");
+      const errorMsg = this.formatApiErrorMessage(null, response, `Sync at batch ${batchIndex + 1}`);
       await this.handleSyncError(errorMsg);
       return null;
     }
@@ -564,7 +621,7 @@ export default class SnipdPlugin extends Plugin {
       debugLog(`Snipd plugin: test metadata response status: ${response.status}`);
     } catch (e) {
       debugLog("Snipd plugin: request failed in testSyncRandomEpisodes: ", e);
-      const errorMsg = "Test sync failed: unable to connect to server." + (isDev() ? ` Detail: ${e}` : "");
+      const errorMsg = this.formatApiErrorMessage(e, null, "Test sync");
       this.settings.isTestSyncing = false;
       await this.saveSettings();
       if (this.settingsTab) {
@@ -659,7 +716,7 @@ export default class SnipdPlugin extends Plugin {
         });
       } catch (e) {
         debugLog("Snipd plugin: export request failed: ", e);
-        const errorMsg = "Test sync failed: unable to connect to server." + (isDev() ? ` Detail: ${e}` : "");
+        const errorMsg = this.formatApiErrorMessage(e, null, "Test sync");
         this.settings.isTestSyncing = false;
         await this.saveSettings();
         if (this.settingsTab) {
@@ -708,8 +765,7 @@ export default class SnipdPlugin extends Plugin {
         this.clearStatusBarPersistentMessageAfterDelay(3000);
       } else {
         debugLog("Snipd plugin: bad response for test export: ", exportResponse);
-        const statusCode = exportResponse ? exportResponse.status : 0;
-        const errorMsg = `Test sync failed${statusCode ? ` (${statusCode})` : ""}` + (isDev() && exportResponse ? ` Detail: ${exportResponse.status}` : "");
+        const errorMsg = this.formatApiErrorMessage(null, exportResponse, "Test sync");
         this.settings.isTestSyncing = false;
         await this.saveSettings();
         if (this.settingsTab) {
@@ -720,8 +776,7 @@ export default class SnipdPlugin extends Plugin {
       }
     } else {
       debugLog("Snipd plugin: bad response in testSyncRandomEpisodes: ", response);
-      const statusCode = response ? response.status : 0;
-      const errorMsg = `Test sync failed${statusCode ? ` (${statusCode})` : ""}` + (isDev() && response ? ` Detail: ${response.status}` : "");
+      const errorMsg = this.formatApiErrorMessage(null, response, "Test sync");
       this.settings.isTestSyncing = false;
       await this.saveSettings();
       if (this.settingsTab) {
@@ -947,7 +1002,8 @@ export default class SnipdPlugin extends Plugin {
 
       if (response.status < 200 || response.status >= 300) {
         debugLog("Snipd plugin: bad response for base file: ", response);
-        debugLog(`Snipd plugin: failed to fetch base file (${response.status})`);
+        const errorMsg = this.formatApiErrorMessage(null, response, "Base file sync");
+        debugLog(`Snipd plugin: ${errorMsg}`);
         return;
       }
 
@@ -1031,7 +1087,8 @@ export default class SnipdPlugin extends Plugin {
       }
     } catch (e) {
       debugLog("Snipd plugin: error fetching base file: ", e);
-      debugLog(`Snipd plugin: failed to fetch base file: ${e}`);
+      const errorMsg = this.formatApiErrorMessage(e, null, "Base file sync");
+      debugLog(`Snipd plugin: ${errorMsg}`);
     } finally {
       if (zipReader) {
         try {
@@ -1087,7 +1144,8 @@ export default class SnipdPlugin extends Plugin {
 
       if (response.status < 200 || response.status >= 300) {
         debugLog("Snipd plugin: bad response for base file in test sync: ", response);
-        debugLog(`Snipd plugin: failed to fetch base file for test sync (${response.status})`);
+        const errorMsg = this.formatApiErrorMessage(null, response, "Base file sync (test)");
+        debugLog(`Snipd plugin: ${errorMsg}`);
         return;
       }
 
@@ -1128,7 +1186,8 @@ export default class SnipdPlugin extends Plugin {
       }
     } catch (e) {
       debugLog("Snipd plugin: error fetching base file for test sync: ", e);
-      debugLog(`Snipd plugin: failed to fetch base file for test sync: ${e}`);
+      const errorMsg = this.formatApiErrorMessage(e, null, "Base file sync (test)");
+      debugLog(`Snipd plugin: ${errorMsg}`);
     } finally {
       if (zipReader) {
         try {
