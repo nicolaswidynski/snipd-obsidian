@@ -43,6 +43,27 @@ export default class SnipdPlugin extends Plugin {
   settingsTab: SnipdSettingModal | null = null;
   syncAbortController: AbortController | null = null;
 
+  private extractResponseFromError(error: unknown): { status: number } | null {
+    if (error && typeof error === 'object' && error !== null) {
+      const errorObj = error as Record<string, unknown>;
+      const responseObj = errorObj.response;
+      if (responseObj && 
+          typeof responseObj === 'object' &&
+          'status' in responseObj) {
+        const status = (responseObj as Record<string, unknown>).status;
+        if (typeof status === 'number') {
+          return { status };
+        }
+      } else if ('status' in errorObj) {
+        const status = errorObj.status;
+        if (typeof status === 'number') {
+          return { status };
+        }
+      }
+    }
+    return null;
+  }
+
   private formatApiErrorMessage(
     error: unknown,
     response: { status: number } | null = null,
@@ -329,7 +350,8 @@ export default class SnipdPlugin extends Plugin {
       debugLog(`Snipd plugin: metadata response status: ${response.status}`);
     } catch (e) {
       debugLog("Snipd plugin: request failed in syncSnipd: ", e);
-      const errorMsg = this.formatApiErrorMessage(e, null, "Sync");
+      const errorResponse = this.extractResponseFromError(e);
+      const errorMsg = this.formatApiErrorMessage(e, errorResponse, "Sync");
       await this.handleSyncError(errorMsg);
       return null;
     }
@@ -476,7 +498,8 @@ export default class SnipdPlugin extends Plugin {
       });
     } catch (e) {
       debugLog("Snipd plugin: request failed for batch: ", e);
-      const errorMsg = this.formatApiErrorMessage(e, null, `Sync at batch ${batchIndex + 1}`);
+      const errorResponse = this.extractResponseFromError(e);
+      const errorMsg = this.formatApiErrorMessage(e, errorResponse, `Sync at batch ${batchIndex + 1}`);
       await this.handleSyncError(errorMsg);
       return null;
     }
@@ -621,7 +644,8 @@ export default class SnipdPlugin extends Plugin {
       debugLog(`Snipd plugin: test metadata response status: ${response.status}`);
     } catch (e) {
       debugLog("Snipd plugin: request failed in testSyncRandomEpisodes: ", e);
-      const errorMsg = this.formatApiErrorMessage(e, null, "Test sync");
+      const errorResponse = this.extractResponseFromError(e);
+      const errorMsg = this.formatApiErrorMessage(e, errorResponse, "Test sync");
       this.settings.isTestSyncing = false;
       await this.saveSettings();
       if (this.settingsTab) {
@@ -716,7 +740,8 @@ export default class SnipdPlugin extends Plugin {
         });
       } catch (e) {
         debugLog("Snipd plugin: export request failed: ", e);
-        const errorMsg = this.formatApiErrorMessage(e, null, "Test sync");
+        const errorResponse = this.extractResponseFromError(e);
+        const errorMsg = this.formatApiErrorMessage(e, errorResponse, "Test sync");
         this.settings.isTestSyncing = false;
         await this.saveSettings();
         if (this.settingsTab) {
@@ -1087,7 +1112,8 @@ export default class SnipdPlugin extends Plugin {
       }
     } catch (e) {
       debugLog("Snipd plugin: error fetching base file: ", e);
-      const errorMsg = this.formatApiErrorMessage(e, null, "Base file sync");
+      const errorResponse = this.extractResponseFromError(e);
+      const errorMsg = this.formatApiErrorMessage(e, errorResponse, "Base file sync");
       debugLog(`Snipd plugin: ${errorMsg}`);
     } finally {
       if (zipReader) {
@@ -1186,7 +1212,8 @@ export default class SnipdPlugin extends Plugin {
       }
     } catch (e) {
       debugLog("Snipd plugin: error fetching base file for test sync: ", e);
-      const errorMsg = this.formatApiErrorMessage(e, null, "Base file sync (test)");
+      const errorResponse = this.extractResponseFromError(e);
+      const errorMsg = this.formatApiErrorMessage(e, errorResponse, "Base file sync (test)");
       debugLog(`Snipd plugin: ${errorMsg}`);
     } finally {
       if (zipReader) {
