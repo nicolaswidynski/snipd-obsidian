@@ -922,7 +922,7 @@ export default class SnipdPlugin extends Plugin {
     showName: string,
     totalSnipCount?: number
   ) {
-    const targetPath = normalizePath(`${this.settings.snipdDir}/Data/${showName}/${entityName}.md`);
+    const targetPath = normalizePath(`${this.settings.snipdDir}/${entityName}.md`);
 
     await createDirForFile(targetPath, this.fs);
 
